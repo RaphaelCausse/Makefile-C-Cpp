@@ -1,6 +1,5 @@
 .vscode/
+
 bin/
 build/
-
-*.mk
 src/
