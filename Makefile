@@ -6,10 +6,6 @@
 # Define executable name
 EXECUTABLE_NAME :=
 
-# Define executable version
-EXECUTABLE_VERSION_MAJOR := 1
-EXECUTABLE_VERSION_MINOR := 0
-
 # Define build mode (debug or release)
 BUILD_MODE := debug
 
@@ -50,7 +46,7 @@ CSTD := -std=c99
 CFLAGS := $(CSTD) -Wall -Wextra
 
 ### Extra flags to give to the C preprocessor (e.g. -I, -D, -U ...)
-CPPFLAGS := -I$(DIR_SRC) -DVERSION_MAJOR=$(EXECUTABLE_VERSION_MAJOR) -DVERSION_MINOR=$(EXECUTABLE_VERSION_MINOR)
+CPPFLAGS :=
 
 ### Extra flags to give to compiler when it invokes the linker (e.g. -L ...)
 LDFLAGS := 
@@ -132,7 +128,6 @@ endif
 .PHONY: build
 build: __prebuild $(TARGET)
 	@echo 'Build done'
-	@echo
 
 
 #-------------------------------------------------
@@ -166,12 +161,18 @@ $(DIR_BUILD)%.o: $(DIR_SRC)%.c
 clean:
 	@echo 'Clean generated files'
 	@echo '-- Deleting target $(TARGET)'
-	$(Q)$(RM) $(TARGET)
+	@if [ -n "$(TARGET)" ]; then \
+		$(Q)$(RM) $(TARGET); \
+	else \
+		echo "Skipping: TARGET is not set"; \
+	fi
 	@echo '-- Deleting objects $(OBJECT_FILES)'
-	$(Q)$(RM) $(OBJECT_FILES)
+	@if [ -n "$(OBJECT_FILES)" ]; then \
+		$(Q)$(RM) $(OBJECT_FILES); \
+	else \
+		echo "Skipping: OBJECT_FILES is not set"; \
+	fi
 	@echo 'Clean done'
-	@echo
-
 
 #-------------------------------------------------
 # Clean entire project
@@ -180,11 +181,18 @@ clean:
 cleanall:
 	@echo 'Clean entire project'
 	@echo '-- Deleting directory $(DIR_BIN)'
-	$(Q)$(RM) $(DIR_BIN)
+	@if [ -n "$(DIR_BIN)" ]; then \
+		$(Q)$(RM) $(DIR_BIN); \
+	else \
+		echo "Skipping: DIR_BIN is not set"; \
+	fi
 	@echo '-- Deleting directory $(DIR_BUILD)'
-	$(Q)$(RM) $(DIR_BUILD)
+	@if [ -n "$(DIR_BUILD)" ]; then \
+		$(Q)$(RM) $(DIR_BUILD); \
+	else \
+		echo "Skipping: DIR_BUILD is not set"; \
+	fi
 	@echo 'Clean done'
-	@echo
 
 
 #-------------------------------------------------
