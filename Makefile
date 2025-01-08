@@ -65,7 +65,8 @@ RELEASE_FLAGS := -O2 -g0
 
 ### Commands
 MKDIR := mkdir -p
-RM    := rm -rf
+RM    := rm -f
+RMDIR := rm -rf
 CP    := cp -rf
 MV    := mv
 
@@ -90,12 +91,8 @@ endif
 #-------------------------------------------------
 .PHONY: __checkdirs
 __checkdirs:
-	@if [ ! -d "$(DIR_BIN)" ]; then \
-		$(MKDIR) $(DIR_BIN); \
-	fi
-	@if [ ! -d "$(DIR_BUILD)" ]; then \
-		$(MKDIR) $(DIR_BUILD); \
-	fi
+	$(if $(wildcard $(DIR_BIN)),,$(shell $(MKDIR) $(DIR_BIN)))
+	$(if $(wildcard $(DIR_BUILD)),,$(shell $(MKDIR) $(DIR_BUILD)))
 
 
 #-------------------------------------------------
@@ -118,8 +115,7 @@ ifeq ($(BUILD_MODE),debug)
 else ifeq ($(BUILD_MODE),release)
 	$(eval CFLAGS += $(RELEASE_FLAGS))
 endif
-
-	@echo 'Build $(TARGET) ($(BUILD_MODE))'
+	@echo "Build $(TARGET) ($(BUILD_MODE))"
 
 
 #-------------------------------------------------
@@ -127,7 +123,7 @@ endif
 #-------------------------------------------------
 .PHONY: build
 build: __prebuild $(TARGET)
-	@echo 'Build done'
+	@echo "Build done ($(BUILD_MODE))"
 
 
 #-------------------------------------------------
@@ -141,7 +137,7 @@ rebuild: clean build
 # Link object files into target target
 #-------------------------------------------------
 $(TARGET): $(OBJECT_FILES)
-	@echo '-- Linking target $@'
+	@echo "LD    $@"
 	$(Q)$(CC) $(LDFLAGS) -o $@ $^ $(LDLIBS)
 
 
@@ -149,7 +145,7 @@ $(TARGET): $(OBJECT_FILES)
 # Compile C source files
 #-------------------------------------------------
 $(DIR_BUILD)%.o: $(DIR_SRC)%.c
-	@echo '-- Compiling $<'
+	@echo "CC    $@"
 	@$(MKDIR) $(dir $@)
 	$(Q)$(CC) $(CPPFLAGS) $(CFLAGS) -c $< -o $@ 
 
@@ -159,40 +155,32 @@ $(DIR_BUILD)%.o: $(DIR_SRC)%.c
 #-------------------------------------------------
 .PHONY: clean
 clean:
-	@echo 'Clean generated files'
-	@echo '-- Deleting target $(TARGET)'
-	@if [ -n "$(TARGET)" ]; then \
-		$(Q)$(RM) $(TARGET); \
-	else \
-		echo "Skipping: TARGET is not set"; \
-	fi
-	@echo '-- Deleting objects $(OBJECT_FILES)'
-	@if [ -n "$(OBJECT_FILES)" ]; then \
-		$(Q)$(RM) $(OBJECT_FILES); \
-	else \
-		echo "Skipping: OBJECT_FILES is not set"; \
-	fi
-	@echo 'Clean done'
+	@echo "Clean generated files"
+ifneq ($(wildcard $(TARGET)),)
+	@echo "RM    $(TARGET)"
+	@$(RM) $(TARGET)
+endif
+ifneq ($(wildcard $(OBJECT_FILES)),)
+	@echo "RM    $(OBJECT_FILES)"
+	@$(RM) $(OBJECT_FILES)
+endif
+	@echo "Clean done"
 
 #-------------------------------------------------
 # Clean entire project
 #-------------------------------------------------
 .PHONY: cleanall
 cleanall:
-	@echo 'Clean entire project'
-	@echo '-- Deleting directory $(DIR_BIN)'
-	@if [ -n "$(DIR_BIN)" ]; then \
-		$(Q)$(RM) $(DIR_BIN); \
-	else \
-		echo "Skipping: DIR_BIN is not set"; \
-	fi
-	@echo '-- Deleting directory $(DIR_BUILD)'
-	@if [ -n "$(DIR_BUILD)" ]; then \
-		$(Q)$(RM) $(DIR_BUILD); \
-	else \
-		echo "Skipping: DIR_BUILD is not set"; \
-	fi
-	@echo 'Clean done'
+	@echo "Clean entire project"
+ifneq ($(wildcard $(DIR_BIN)),)
+	@echo "RM    $(DIR_BIN)"
+	@$(RMDIR) $(DIR_BIN)
+endif
+ifneq ($(wildcard $(DIR_BUILD)),)
+	@echo "RM    $(DIR_BUILD)"
+	@$(RMDIR) $(DIR_BUILD)
+endif
+	@echo "Clean done"
 
 
 #-------------------------------------------------
@@ -200,13 +188,13 @@ cleanall:
 #-------------------------------------------------
 .PHONY: info
 info:
-	@echo 'Build configurations'
-	@echo '-- CC: $(CC)'
-	@echo '-- CFLAGS: $(CFLAGS)'
-	@echo '-- CPPFLAGS: $(CPPFLAGS)'
-	@echo '-- LDFLAGS: $(LDFLAGS)'
-	@echo '-- LDLIBS: $(LDLIBS)'
-	@echo 'Files'
-	@echo '-- TARGET: $(TARGET)'
-	@echo '-- SOURCE_FILES: $(SOURCE_FILES)'
-	@echo '-- OBJECT_FILES: $(OBJECT_FILES)'
+	@echo "Build configurations"
+	@echo "-- CC: $(CC)"
+	@echo "-- CFLAGS: $(CFLAGS)"
+	@echo "-- CPPFLAGS: $(CPPFLAGS)"
+	@echo "-- LDFLAGS: $(LDFLAGS)"
+	@echo "-- LDLIBS: $(LDLIBS)"
+	@echo "Files"
+	@echo "-- TARGET: $(TARGET)"
+	@echo "-- SOURCE_FILES: $(SOURCE_FILES)"
+	@echo "-- OBJECT_FILES: $(OBJECT_FILES)"
