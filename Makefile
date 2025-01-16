@@ -3,14 +3,14 @@
 # Author: Raphael CAUSSE
 #==============================================================================
 
-# Define executable name
-EXECUTABLE_NAME :=
+# Define target name
+TARGET_NAME :=
 
 # Define build mode (debug or release)
 BUILD_MODE := debug
 
 # Define source files to compile
-SOURCES := 
+SOURCE_FILES :=
 
 
 #==============================================================================
@@ -18,18 +18,18 @@ SOURCES :=
 #==============================================================================
 
 ### Predefined directories
-DIR_BIN   := bin/
-DIR_BUILD := build/
-DIR_SRC   := src/
+DIR_BIN   := bin
+DIR_BUILD := build
+DIR_SRC   := src
 
 ### Target
-TARGET := $(DIR_BIN)$(EXECUTABLE_NAME)
+TARGET := $(DIR_BIN)/$(TARGET_NAME)
 
 ### Source files
-SOURCE_FILES := $(filter-out \,$(SOURCES))
+SOURCES := $(addprefix $(DIR_SRC)/,$(filter-out \,$(SOURCE_FILES)))
 
 ### Object files
-OBJECT_FILES := $(subst $(DIR_SRC),$(DIR_BUILD),$(addsuffix .o,$(basename $(SOURCE_FILES))))
+OBJECTS := $(subst $(DIR_SRC),$(DIR_BUILD),$(addsuffix .o,$(basename $(SOURCES))))
 
 
 #==============================================================================
@@ -43,7 +43,7 @@ CC := gcc
 CSTD := -std=c99
 
 ### Extra flags to give to the C compiler
-CFLAGS := $(CSTD) -Wall -Wextra
+CFLAGS := $(CSTD) -Wall -Wextra -pedantic
 
 ### Extra flags to give to the C preprocessor (e.g. -I, -D, -U ...)
 CPPFLAGS :=
@@ -55,8 +55,8 @@ LDFLAGS :=
 LDLIBS := 
 
 ### Build mode specific flags
-DEBUG_FLAGS   := -O0 -g3
-RELEASE_FLAGS := -O2 -g0
+DEBUG_FLAGS   := -O0 -g3 -DDEBUG
+RELEASE_FLAGS := -O2 -g0 -DNDEBUG
 
 
 #==============================================================================
@@ -72,12 +72,9 @@ MV    := mv
 
 
 #==============================================================================
-# RULES
+# VERBOSITY
 #==============================================================================
 
-default: build
-
-### Verbosity
 VERBOSE := $(or $(v), $(verbose))
 ifeq ($(VERBOSE),)
     Q := @
@@ -86,45 +83,47 @@ else
 endif
 
 
+#==============================================================================
+# RULES
+#==============================================================================
+
+default: build
+
 #-------------------------------------------------
 # (Internal rule) Check directories
 #-------------------------------------------------
 .PHONY: __checkdirs
 __checkdirs:
-	$(if $(wildcard $(DIR_BIN)),,$(shell $(MKDIR) $(DIR_BIN)))
-	$(if $(wildcard $(DIR_BUILD)),,$(shell $(MKDIR) $(DIR_BUILD)))
-
+	@$(MKDIR) $(DIR_BIN)
+	@$(MKDIR) $(DIR_BUILD)
 
 #-------------------------------------------------
 # (Internal rule) Pre build operations
 #-------------------------------------------------
 .PHONY: __prebuild
 __prebuild: __checkdirs
-ifeq ($(EXECUTABLE_NAME),)
-	$(error EXECUTABLE_NAME is required. Must provide an executable name)
+ifeq ($(TARGET_NAME),)
+	$(error TARGET_NAME is required. Must provide a target name)
 endif
 ifeq ($(filter $(BUILD_MODE),debug release),)
 	$(error BUILD_MODE is invalid. Must provide a valid mode (debug or release))
 endif
-ifeq ($(SOURCES),)
-	$(error SOURCES is required. Must provide sources files to compile)
+ifeq ($(SOURCE_FILES),)
+	$(error SOURCE_FILES is required. Must provide sources files to compile)
 endif
-
 ifeq ($(BUILD_MODE),debug)
 	$(eval CFLAGS += $(DEBUG_FLAGS))
 else ifeq ($(BUILD_MODE),release)
 	$(eval CFLAGS += $(RELEASE_FLAGS))
 endif
-	@echo "Build $(TARGET) ($(BUILD_MODE))"
-
+	@echo "===== Building $(TARGET) ($(BUILD_MODE)) ====="
 
 #-------------------------------------------------
 # Build operations
 #-------------------------------------------------
 .PHONY: build
 build: __prebuild $(TARGET)
-	@echo "Build done ($(BUILD_MODE))"
-
+	@echo "===== Build done ($(BUILD_MODE)) ====="
 
 #-------------------------------------------------
 # Rebuild operations
@@ -132,46 +131,43 @@ build: __prebuild $(TARGET)
 .PHONY: rebuild
 rebuild: clean build
 	
-
 #-------------------------------------------------
-# Link object files into target target
+# Link object files into target
 #-------------------------------------------------
-$(TARGET): $(OBJECT_FILES)
+$(TARGET): $(OBJECTS)
 	@echo "LD    $@"
 	$(Q)$(CC) $(LDFLAGS) -o $@ $^ $(LDLIBS)
-
 
 #-------------------------------------------------
 # Compile C source files
 #-------------------------------------------------
-$(DIR_BUILD)%.o: $(DIR_SRC)%.c
+%.o: %.c
 	@echo "CC    $@"
 	@$(MKDIR) $(dir $@)
-	$(Q)$(CC) $(CPPFLAGS) $(CFLAGS) -c $< -o $@ 
-
+	$(Q)$(CC) $(CPPFLAGS) $(CFLAGS) -c $< -o $@
 
 #-------------------------------------------------
 # Clean generated files
 #-------------------------------------------------
 .PHONY: clean
 clean:
-	@echo "Clean generated files"
+	@echo "===== Cleaning generated files ====="
 ifneq ($(wildcard $(TARGET)),)
-	@echo "RM    $(TARGET)"
+	@echo " RM    $(TARGET)"
 	@$(RM) $(TARGET)
 endif
-ifneq ($(wildcard $(OBJECT_FILES)),)
-	@echo "RM    $(OBJECT_FILES)"
-	@$(RM) $(OBJECT_FILES)
+ifneq ($(wildcard $(OBJECTS)),)
+	@echo "RM    $(OBJECTS)"
+	@$(RM) $(OBJECTS)
 endif
-	@echo "Clean done"
+	@echo "===== Clean done ====="
 
 #-------------------------------------------------
 # Clean entire project
 #-------------------------------------------------
 .PHONY: cleanall
 cleanall:
-	@echo "Clean entire project"
+	@echo "===== Cleaning entire project ====="
 ifneq ($(wildcard $(DIR_BIN)),)
 	@echo "RM    $(DIR_BIN)"
 	@$(RMDIR) $(DIR_BIN)
@@ -180,21 +176,20 @@ ifneq ($(wildcard $(DIR_BUILD)),)
 	@echo "RM    $(DIR_BUILD)"
 	@$(RMDIR) $(DIR_BUILD)
 endif
-	@echo "Clean done"
-
+	@echo "===== Clean done ====="
 
 #-------------------------------------------------
 # Project informations
 #-------------------------------------------------
 .PHONY: info
 info:
-	@echo "Build configurations"
-	@echo "-- CC: $(CC)"
-	@echo "-- CFLAGS: $(CFLAGS)"
-	@echo "-- CPPFLAGS: $(CPPFLAGS)"
-	@echo "-- LDFLAGS: $(LDFLAGS)"
-	@echo "-- LDLIBS: $(LDLIBS)"
-	@echo "Files"
-	@echo "-- TARGET: $(TARGET)"
-	@echo "-- SOURCE_FILES: $(SOURCE_FILES)"
-	@echo "-- OBJECT_FILES: $(OBJECT_FILES)"
+	@echo "===== Build configurations ====="
+	@echo "CC        $(CC)"
+	@echo "CFLAGS    $(CFLAGS)"
+	@echo "CPPFLAGS  $(CPPFLAGS)"
+	@echo "LDFLAGS   $(LDFLAGS)"
+	@echo "LDLIBS    $(LDLIBS)"
+	@echo "===== Files ====="
+	@echo "TARGET    $(TARGET)"
+	@echo "SOURCES   $(SOURCES)"
+	@echo "OBJECTS   $(OBJECTS)"
