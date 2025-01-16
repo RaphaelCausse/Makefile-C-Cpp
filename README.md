@@ -4,10 +4,11 @@
 
 Makefile template for small / medium sized C projects.
 
-Currently developing and testing **v2** (branch `v2`), please use the **v1** (branch `v1`).
+Currently developing and testing **v2** (branch `v2`) for Linux only.
+
+To use a Makefile compatible with both Linux and Windows, please use the **v1** (branch `v1`).
 
 
 ## AUTHOR
 
 Raphael CAUSSE
-Linux (Ubuntu 22.10)
