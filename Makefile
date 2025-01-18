@@ -31,6 +31,9 @@ SOURCES := $(addprefix $(DIR_SRC)/,$(filter-out \,$(SOURCE_FILES)))
 ### Object files
 OBJECTS := $(subst $(DIR_SRC),$(DIR_BUILD),$(addsuffix .o,$(basename $(SOURCES))))
 
+### Dependency files
+DEPENDENCIES := $(OBJECTS:.o=.d)
+
 
 #==============================================================================
 # COMPILER AND LINKER
@@ -47,6 +50,9 @@ CFLAGS := $(CSTD) -Wall -Wextra -pedantic
 
 ### Extra flags to give to the C preprocessor (e.g. -I, -D, -U ...)
 CPPFLAGS :=
+
+### Dependency flags
+DEPFLAGS := -MMD -MP
 
 ### Extra flags to give to compiler when it invokes the linker (e.g. -L ...)
 LDFLAGS := 
@@ -116,14 +122,13 @@ ifeq ($(BUILD_MODE),debug)
 else ifeq ($(BUILD_MODE),release)
 	$(eval CFLAGS += $(RELEASE_FLAGS))
 endif
-	@echo "===== Building $(TARGET) ($(BUILD_MODE)) ====="
+	@echo "BUILD    $(TARGET) ($(BUILD_MODE))"
 
 #-------------------------------------------------
 # Build operations
 #-------------------------------------------------
 .PHONY: build
 build: __prebuild $(TARGET)
-	@echo "===== Build done ($(BUILD_MODE)) ====="
 
 #-------------------------------------------------
 # Rebuild operations
@@ -141,55 +146,57 @@ $(TARGET): $(OBJECTS)
 #-------------------------------------------------
 # Compile C source files
 #-------------------------------------------------
-%.o: %.c
+$(DIR_BUILD)/%.o: $(DIR_SRC)/%.c
 	@echo "CC    $@"
 	@$(MKDIR) $(dir $@)
-	$(Q)$(CC) $(CPPFLAGS) $(CFLAGS) -c $< -o $@
+	$(Q)$(CC) $(CPPFLAGS) $(CFLAGS) $(DEPFLAGS) -c $< -o $@
 
 #-------------------------------------------------
 # Clean generated files
 #-------------------------------------------------
 .PHONY: clean
 clean:
-	@echo "===== Cleaning generated files ====="
 ifneq ($(wildcard $(TARGET)),)
-	@echo " RM    $(TARGET)"
+	@echo "RM    $(TARGET)"
 	@$(RM) $(TARGET)
 endif
 ifneq ($(wildcard $(OBJECTS)),)
-	@echo "RM    $(OBJECTS)"
+	@for obj in $(OBJECTS); do echo "RM    $$obj"; done
 	@$(RM) $(OBJECTS)
+	@for dep in $(DEPENDENCIES); do echo "RM    $$dep"; done
+	@$(RM) $(DEPENDENCIES)
 endif
-	@echo "===== Clean done ====="
 
 #-------------------------------------------------
 # Clean entire project
 #-------------------------------------------------
 .PHONY: cleanall
 cleanall:
-	@echo "===== Cleaning entire project ====="
 ifneq ($(wildcard $(DIR_BIN)),)
-	@echo "RM    $(DIR_BIN)"
+	@echo "RM    $(DIR_BIN)/"
 	@$(RMDIR) $(DIR_BIN)
 endif
 ifneq ($(wildcard $(DIR_BUILD)),)
-	@echo "RM    $(DIR_BUILD)"
+	@echo "RM    $(DIR_BUILD)/"
 	@$(RMDIR) $(DIR_BUILD)
 endif
-	@echo "===== Clean done ====="
 
 #-------------------------------------------------
 # Project informations
 #-------------------------------------------------
 .PHONY: info
 info:
-	@echo "===== Build configurations ====="
-	@echo "CC        $(CC)"
-	@echo "CFLAGS    $(CFLAGS)"
-	@echo "CPPFLAGS  $(CPPFLAGS)"
-	@echo "LDFLAGS   $(LDFLAGS)"
-	@echo "LDLIBS    $(LDLIBS)"
-	@echo "===== Files ====="
-	@echo "TARGET    $(TARGET)"
-	@echo "SOURCES   $(SOURCES)"
-	@echo "OBJECTS   $(OBJECTS)"
+	@echo "INFO    CC        $(CC)"
+	@echo "INFO    CFLAGS    $(CFLAGS)"
+	@echo "INFO    CPPFLAGS  $(CPPFLAGS)"
+	@echo "INFO    LDFLAGS   $(LDFLAGS)"
+	@echo "INFO    LDLIBS    $(LDLIBS)"
+	@echo
+	@echo "INFO    TARGET    $(TARGET)"
+	@echo "INFO    SOURCES   $(SOURCES)"
+	@echo "INFO    OBJECTS   $(OBJECTS)"
+
+#-------------------------------------------------
+# Load dependency files
+#-------------------------------------------------
+-include $(DEPENDENCIES)
