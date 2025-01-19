@@ -4,35 +4,41 @@
 #==============================================================================
 
 # Define target name
-TARGET_NAME :=
-
-# Define build mode (debug or release)
-BUILD_MODE := debug
+TARGET_NAME := 
 
 # Define source files to compile
-SOURCE_FILES :=
+SOURCE_FILES := 
 
 
 #==============================================================================
 # DIRECTORIES AND FILES
 #==============================================================================
 
-### Predefined directories
+### Base directories
 DIR_BIN   := bin
 DIR_BUILD := build
 DIR_SRC   := src
 
+### Generation directories
+DIR_BIN_DEBUG     := $(DIR_BIN)/debug
+DIR_BUILD_DEBUG   := $(DIR_BUILD)/debug
+DIR_BIN_RELEASE   := $(DIR_BIN)/release
+DIR_BUILD_RELEASE := $(DIR_BUILD)/release
+
 ### Target
-TARGET := $(DIR_BIN)/$(TARGET_NAME)
+TARGET_DEBUG := $(DIR_BIN_DEBUG)/$(TARGET_NAME)
+TARGET_RELEASE := $(DIR_BIN_RELEASE)/$(TARGET_NAME)
 
 ### Source files
-SOURCES := $(addprefix $(DIR_SRC)/,$(filter-out \,$(SOURCE_FILES)))
+SOURCES := $(addprefix $(DIR_SRC)/, $(filter-out \, $(SOURCE_FILES)))
 
 ### Object files
-OBJECTS := $(subst $(DIR_SRC),$(DIR_BUILD),$(addsuffix .o,$(basename $(SOURCES))))
+OBJECTS_DEBUG := $(patsubst $(DIR_SRC)/%.c, $(DIR_BUILD_DEBUG)/%.o, $(SOURCES))
+OBJECTS_RELEASE := $(patsubst $(DIR_SRC)/%.c, $(DIR_BUILD_RELEASE)/%.o, $(SOURCES))
 
 ### Dependency files
-DEPENDENCIES := $(OBJECTS:.o=.d)
+DEPENDENCIES_DEBUG := $(OBJECTS_DEBUG:.o=.d)
+DEPENDENCIES_RELEASE := $(OBJECTS_RELEASE:.o=.d)
 
 
 #==============================================================================
@@ -49,7 +55,7 @@ CSTD := -std=c99
 CFLAGS := $(CSTD) -Wall -Wextra -pedantic
 
 ### Extra flags to give to the C preprocessor (e.g. -I, -D, -U ...)
-CPPFLAGS :=
+CPPFLAGS := 
 
 ### Dependency flags
 DEPFLAGS := -MMD -MP
@@ -61,8 +67,8 @@ LDFLAGS :=
 LDLIBS := 
 
 ### Build mode specific flags
-DEBUG_FLAGS   := -O0 -g3 -DDEBUG
-RELEASE_FLAGS := -O2 -g0 -DNDEBUG
+FLAGS_DEBUG   := -O0 -g3 -DDEBUG
+FLAGS_RELEASE := -O2 -g0 -DNDEBUG
 
 
 #==============================================================================
@@ -82,7 +88,7 @@ MV    := mv
 #==============================================================================
 
 VERBOSE := $(or $(v), $(verbose))
-ifeq ($(VERBOSE),)
+ifeq ($(VERBOSE), )
     Q := @
 else
     Q :=
@@ -93,61 +99,82 @@ endif
 # RULES
 #==============================================================================
 
-default: build
+all: default
+
+default: debug
+
+### Internal rules protection
+$(if $(filter __%, $(MAKECMDGOALS)), $(error Rules prefixed with "__" are only for internal use))
 
 #-------------------------------------------------
-# (Internal rule) Check directories
+# (Internal) Check configuration
 #-------------------------------------------------
-.PHONY: __checkdirs
-__checkdirs:
-	@$(MKDIR) $(DIR_BIN)
-	@$(MKDIR) $(DIR_BUILD)
-
-#-------------------------------------------------
-# (Internal rule) Pre build operations
-#-------------------------------------------------
-.PHONY: __prebuild
-__prebuild: __checkdirs
-ifeq ($(TARGET_NAME),)
+.PHONY: __check_conf
+__check_conf:
+ifeq ($(TARGET_NAME), )
 	$(error TARGET_NAME is required. Must provide a target name)
 endif
-ifeq ($(filter $(BUILD_MODE),debug release),)
-	$(error BUILD_MODE is invalid. Must provide a valid mode (debug or release))
-endif
-ifeq ($(SOURCE_FILES),)
+ifeq ($(SOURCE_FILES), )
 	$(error SOURCE_FILES is required. Must provide sources files to compile)
 endif
-ifeq ($(BUILD_MODE),debug)
-	$(eval CFLAGS += $(DEBUG_FLAGS))
-else ifeq ($(BUILD_MODE),release)
-	$(eval CFLAGS += $(RELEASE_FLAGS))
-endif
-	@echo "BUILD    $(TARGET) ($(BUILD_MODE))"
 
 #-------------------------------------------------
-# Build operations
+# (Internal) Pre build debug
 #-------------------------------------------------
-.PHONY: build
-build: __prebuild $(TARGET)
+.PHONY: __pre_debug
+__pre_debug:
+	@$(MKDIR) $(DIR_BIN_DEBUG)
+	@$(MKDIR) $(DIR_BUILD_DEBUG)
 
 #-------------------------------------------------
-# Rebuild operations
+# (Internal) Pre build release
 #-------------------------------------------------
-.PHONY: rebuild
-rebuild: clean build
+.PHONY: __pre_release
+__pre_release:
+	@$(MKDIR) $(DIR_BIN_RELEASE)
+	@$(MKDIR) $(DIR_BUILD_RELEASE)
+
+#-------------------------------------------------
+# Build operations (debug)
+#-------------------------------------------------
+.PHONY: debug
+debug: CFLAGS += $(FLAGS_DEBUG)
+debug: __check_conf __pre_debug $(TARGET_DEBUG)
+
+#-------------------------------------------------
+# Build operations (release)
+#-------------------------------------------------
+.PHONY: release
+release: CFLAGS += $(FLAGS_RELEASE)
+release: __check_conf __pre_release $(TARGET_RELEASE)
 	
 #-------------------------------------------------
-# Link object files into target
+# Link objects into target (debug)
 #-------------------------------------------------
-$(TARGET): $(OBJECTS)
-	@echo "LD    $@"
+$(TARGET_DEBUG): $(OBJECTS_DEBUG)
+	@echo " LD    $@"
 	$(Q)$(CC) $(LDFLAGS) -o $@ $^ $(LDLIBS)
 
 #-------------------------------------------------
-# Compile C source files
+# Link objects into target (release)
 #-------------------------------------------------
-$(DIR_BUILD)/%.o: $(DIR_SRC)/%.c
-	@echo "CC    $@"
+$(TARGET_RELEASE): $(OBJECTS_RELEASE)
+	@echo " LD    $@"
+	$(Q)$(CC) $(LDFLAGS) -o $@ $^ $(LDLIBS)
+
+#-------------------------------------------------
+# Compile C source files (debug)
+#-------------------------------------------------
+$(DIR_BUILD_DEBUG)/%.o: $(DIR_SRC)/%.c
+	@echo " CC    $@"
+	@$(MKDIR) $(dir $@)
+	$(Q)$(CC) $(CPPFLAGS) $(CFLAGS) $(DEPFLAGS) -c $< -o $@
+
+#-------------------------------------------------
+# Compile C source files (release)
+#-------------------------------------------------
+$(DIR_BUILD_RELEASE)/%.o: $(DIR_SRC)/%.c
+	@echo " CC    $@"
 	@$(MKDIR) $(dir $@)
 	$(Q)$(CC) $(CPPFLAGS) $(CFLAGS) $(DEPFLAGS) -c $< -o $@
 
@@ -156,28 +183,38 @@ $(DIR_BUILD)/%.o: $(DIR_SRC)/%.c
 #-------------------------------------------------
 .PHONY: clean
 clean:
-ifneq ($(wildcard $(TARGET)),)
-	@echo "RM    $(TARGET)"
-	@$(RM) $(TARGET)
+ifneq ($(wildcard $(TARGET_DEBUG)), )
+	@echo " RM    $(TARGET_DEBUG)"
+	@$(RM) $(TARGET_DEBUG)
 endif
-ifneq ($(wildcard $(OBJECTS)),)
-	@for obj in $(OBJECTS); do echo "RM    $$obj"; done
-	@$(RM) $(OBJECTS)
-	@for dep in $(DEPENDENCIES); do echo "RM    $$dep"; done
-	@$(RM) $(DEPENDENCIES)
+ifneq ($(wildcard $(OBJECTS_DEBUG)), )
+	@for obj in $(OBJECTS_DEBUG); do echo " RM    $$obj"; done
+	@$(RM) $(OBJECTS_DEBUG)
+	@for dep in $(DEPENDENCIES_DEBUG); do echo " RM    $$dep"; done
+	@$(RM) $(DEPENDENCIES_DEBUG)
+endif
+ifneq ($(wildcard $(TARGET_RELEASE)), )
+	@echo " RM    $(TARGET_RELEASE)"
+	@$(RM) $(TARGET_RELEASE)
+endif
+ifneq ($(wildcard $(OBJECTS_RELEASE)), )
+	@for obj in $(OBJECTS_RELEASE); do echo " RM    $$obj"; done
+	@$(RM) $(OBJECTS_RELEASE)
+	@for dep in $(DEPENDENCIES_RELEASE); do echo " RM    $$dep"; done
+	@$(RM) $(DEPENDENCIES_RELEASE)
 endif
 
 #-------------------------------------------------
-# Clean entire project
+# Clean generated files and directories
 #-------------------------------------------------
 .PHONY: cleanall
 cleanall:
-ifneq ($(wildcard $(DIR_BIN)),)
-	@echo "RM    $(DIR_BIN)/"
+ifneq ($(wildcard $(DIR_BIN)), )
+	@echo " RM    $(DIR_BIN)/"
 	@$(RMDIR) $(DIR_BIN)
 endif
-ifneq ($(wildcard $(DIR_BUILD)),)
-	@echo "RM    $(DIR_BUILD)/"
+ifneq ($(wildcard $(DIR_BUILD)), )
+	@echo " RM    $(DIR_BUILD)/"
 	@$(RMDIR) $(DIR_BUILD)
 endif
 
@@ -186,15 +223,23 @@ endif
 #-------------------------------------------------
 .PHONY: info
 info:
-	@echo "INFO    CC        $(CC)"
-	@echo "INFO    CFLAGS    $(CFLAGS)"
-	@echo "INFO    CPPFLAGS  $(CPPFLAGS)"
-	@echo "INFO    LDFLAGS   $(LDFLAGS)"
-	@echo "INFO    LDLIBS    $(LDLIBS)"
-	@echo
-	@echo "INFO    TARGET    $(TARGET)"
-	@echo "INFO    SOURCES   $(SOURCES)"
-	@echo "INFO    OBJECTS   $(OBJECTS)"
+	@echo " CC        $(CC)"
+	@echo " CFLAGS    $(CFLAGS)"
+	@echo " CPPFLAGS  $(CPPFLAGS)"
+	@echo " LDFLAGS   $(LDFLAGS)"
+	@echo " LDLIBS    $(LDLIBS)"
+	@echo " SOURCES   $(SOURCES)"
+
+#-------------------------------------------------
+# Makefile help
+#-------------------------------------------------
+.PHONY: help
+help:
+	@echo "debug      Build target in debug mode"
+	@echo "release    Build target in release mode"
+	@echo "clean      Clean generated files"
+	@echo "cleanall   Clean generated files and directories"
+	@echo "info       Display project informations"
 
 #-------------------------------------------------
 # Load dependency files
